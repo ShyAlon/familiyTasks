@@ -1,5 +1,5 @@
 const admin                = require('firebase-admin');
-const {Task, TaskInstance} = require('./pojo/task');
+const {Task, TaskInstance, Member} = require('./pojo/task');
 const serviceAccount       = require("./familytasks2017-firebase-adminsdk-tlpmx-82f97e012a");
 
 admin.initializeApp({
@@ -9,20 +9,26 @@ admin.initializeApp({
 const db = admin.firestore();
 
 function createTaskInstances(tasksToStart) {
-  const taskInstances = db.collection('taskInstances');
+  const members = db.collection('members');
   for (let i = 0; i < tasksToStart.length; i++) {
-    const taskToStart  = tasksToStart[i];
-    const taskInstance = new TaskInstance(taskToStart, member);
-    const docRef       = taskInstances.doc(taskInstance.key);
-    const setAda       = docRef.set(taskInstance);
+    const taskToStart     = tasksToStart[i];
+    const taskInstance    = new TaskInstance(taskToStart);
+    const docRef          = members.doc(taskToStart.memberId);
+    docRef.get().then(m => {
+      const member = new Member(m);
+      member.addTaskInstance(taskInstance);
+      docRef.set(docRef);
+    });
   }
 }
 
 function handleActiveTasks(activeTasks) {
-  const taskInstances = db.collection('taskInstances');
-  taskInstances.get()
+  const members = db.collection('members');
+  members.get()
     .then(snapshot => {
-      const existingTaskInstances = snapshot.map(t => new TaskInstance(t));
+      const existingTaskInstances = snapshot.map(m => m.taskInstances).reduce((accumulator, currentValue) => {
+          return accumulator.concat(currentValue);
+        }, []).map(t => new TaskInstance(t));
       const activeTasksIds        = new Set(existingTaskInstances.map(x => x.taskId));
       const tasksToStart          = activeTasks.filter(task => !activeTasksIds.has(task.id));
       createTaskInstances(tasksToStart);
@@ -32,7 +38,7 @@ function handleActiveTasks(activeTasks) {
     });
 }
 
-function setActiveTasks() {
+function startNewTasks() {
   const tasks = db.collection('tasks');
   tasks.get()
     .then(snapshot => {
@@ -45,16 +51,8 @@ function setActiveTasks() {
 }
 
 setInterval(() => {
-  // const citiesRef = db.collection('cities');
-  // var query = citiesRef.where('capital', '==', true).get()
-  //   .then(snapshot => {
-  //     snapshot.forEach(doc => {
-  //       console.log(doc.id, '=>', doc.data());
-  //     });
-  //   })
-  //   .catch(err => {
-  //     console.log('Error getting documents', err);
-  //   });
+  startNewTasks();
+  finalizeFinishedTasks
 }, 2000);
 
 

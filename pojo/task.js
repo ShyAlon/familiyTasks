@@ -1,11 +1,33 @@
+const logger = require("winston");
+
 const periods = {
   day : "daily",
   week: "weekly",
   none: "none"
 };
 
-class Task {
-  constructor({startTime, endTime, adHoc, repeat, dailyStartTime, dailyEndTime, weekDays}) {
+class Item {
+  constructor(id) {
+    if (!id) {
+      this.id = Item.guid();
+    }
+  }
+
+  static guid() {
+    function s4() {
+      return Math.floor((1 + Math.random()) * 0x10000)
+        .toString(16)
+        .substring(1);
+    }
+
+    return s4() + s4() + '-' + s4() + '-' + s4() + '-' +
+      s4() + '-' + s4() + s4() + s4();
+  }
+}
+
+class Task extends item {
+  constructor({startTime, endTime, adHoc, repeat, dailyStartTime, dailyEndTime, weekDays, memberId, id}) {
+    super(id);
     this.startTime      = startTime || Number.MAX_VALUE;
     this.endTime        = endTime || 0;
     this.adHoc          = adHoc || false;
@@ -14,6 +36,7 @@ class Task {
     this.dailyEndTime   = dailyEndTime || -1;
     // bit arrangement of week days
     this.weekDays       = weekDays || 0;
+    this.memberId       = memberId;
   }
 
   get inDailyTime() {
@@ -33,10 +56,11 @@ class Task {
   }
 }
 
-class TaskInstance {
-  constructor(task, member) {
-    this.taskId = task.id;
-    this.memberId = member.id;
+class TaskInstance extends item {
+  constructor({task, id}) {
+    super(id);
+    this.taskId   = task.id;
+    this.memberId = task.memberId;
   }
 
   get key() {
@@ -44,4 +68,18 @@ class TaskInstance {
   }
 }
 
-module.exports = {Task, TaskInstance};
+class Member extends item {
+  constructor({taskInstances, id}) {
+    super(id);
+    this.taskInstances = taskInstances || {};
+  }
+
+  addTaskInstance(taskInstance) {
+    if (this.taskInstances[taskInstance.id]) {
+      logger.warn("Overriding task instance!");
+    }
+    this.taskInstances[taskInstance.id] = taskInstance;
+  }
+}
+
+module.exports = {Task, TaskInstance, Member};
