@@ -34,8 +34,13 @@ class Task {
 }
 
 class TaskInstance {
-  constructor(task) {
-    this.task = task;
+  constructor(task, member) {
+    this.taskId = task.id;
+    this.memberId = member.id;
+  }
+
+  get key() {
+    return `${this.memberId}-${this.taskId}`;
   }
 }
 
